@@ -1,0 +1,259 @@
+---
+title: "Postconflicto en Colombia - Aproximación geográfica"
+author: "Msc. Fabio Castro"
+output: 
+  flexdashboard::flex_dashboard:
+    logo: png/logo/logo.png
+    horizontal_layout: scroll
+    navbar:
+       - { title: "Geographer", href: "http://geofabio.com", align: right}
+    theme: lumen
+    social: [ "twitter", "facebook", "linkedin" ]
+    source_code: "https://github.com/fabiolexcastro/Cacao_Postconflicto"
+---
+
+<style>
+.navbar-logo{
+width:60px;
+height:40px;
+}
+</style>
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+require(pacman)
+pacman::p_load(raster, DT, rmapshaper, leafem, leaflet.providers, leaflet.extras, leaflegend, geodata, kableExtra, rgdal, rgeos, stringr, sf, tidyverse, fs, gtools, cptcity, leaflet, glue)
+```
+
+Resumen - Presentación
+=========================================
+Columna 1 {data-width=150}
+-----------------------------------------
+### Presentación 
+
+***Sobre el autor***: 
+Fabio Alexander Castro Llanos, 
+Geógrafo y Máster en Ciencias de la Inforamción Geográfica. Si quieres ver mi producción científica, aquí en mi perfil de 
+[Google Scholar](https://scholar.google.com.co/citations?user=lfGOw-MAAAAJ&hl=en) la puedes ver.
+
+La presente página web recopila la tesis de grado de maestría (de Fabio Castro) para optar al título de Máster en Ciencias de la Información Geográfica con la Universidad del Sazburgo - Austria. 
+
+**Análisis de municipios para el desarrollo del cultivo de cacao en el marco del postconflicto en Colombia**
+
+Resumen: 
+Como consecuencia de los altos niveles de violencia, secuestros, y atentados, los acuerdos firmados en La Habana tienden a constituirse como un gran avance en el desarrollo y logro de la paz en Colombia, no obstante, la investigación académica que busca dar una nueva respuesta a los cultivos ilícitos en el país aún no cuenta con la relevancia suficiente como se esperaría.
+Partiendo de tal premisa, la presente investigación busca tomar como elemento fundamental el postconflicto en Colombia; éste como salida al posible desarrollo de los municipios que han sido mayormente afectados por la guerra a partir de la inclusión y/o aumento de área cultivada de un producto altamente importante en la economía de Colombia como lo es el cacao. Razón por la cual, el objetivo principal de esta investigación es analizar la idoneidad de los municipios para el desarrollo del cultivo de cacao en el marco del postconflicto en Colombia.
+La metodología de la presente investigación se basa en el uso de herramientas estadístico-espaciales, tales como el análisis de correlación lineal, análisis de clúster jerárquico, y autocorrelación espacial. Los usos de estas distintas técnicas ayudan a responder a la pregunta cuáles son los municipios más propicios para el desarrollo del cultivo de cacao en Colombia en el marco del postconflicto.
+
+Columna 2 
+-----------------------------------------
+### Mapa zona de estudio
+
+```{r load, include=TRUE, message = FALSE, width = 500, height = 400}
+zomac <- st_read('./gpkg/zomac_pdet.gpkg', quiet = TRUE)
+zomac <- mutate(zomac, type_3 = factor(type_3, levels = c('ZOMAC - PEDET', 'ZOMAC', 'PEDET')))
+leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(data = zomac,
+    fill = 'type_3',
+    color = c('#C9D3B4', '#70687A', '#CDDD57'),
+    weight = 1,
+    fillOpacity = 0.4,
+    popup = glue('{zomac$NOMBRE_DPT} - {zomac$NOM_MUNICI}'),
+    highlightOptions = highlightOptions(fillColor = 'yellow')
+    ) %>% 
+  addLegend(color = c('#C9D3B4', '#70687A', '#CDDD57'), 
+            labels = c('ZOMAC - PDET', 'ZOMAC', 'PDET'), 
+            position = 'topright', 
+            title = 'Tipo de municipio')%>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100,
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE,
+                                                                 updateWhenIdle = TRUE)) %>%
+  addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) %>% 
+    addMeasure(position = "topleft",
+             primaryLengthUnit = "meters",
+             primaryAreaUnit = "sqmeters",
+             activeColor = "#3D535D",
+             completedColor = "#7D4479")%>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addResetMapButton()
+```
+
+### Descripción
+
+En la siguiente tabla se ilustra la cantidad de municipios que hay dentro de cada categoría
+
+```{r table_smm, include=TRUE, message = FALSE}
+zomac %>% 
+  st_set_geometry(NULL) %>% 
+  as_tibble() %>% 
+  group_by(type_3) %>% 
+  summarise(count = n()) %>% 
+  ungroup() %>% 
+  dplyr::select(type_3, count) %>% 
+  setNames(c('Tipo municipio', 'Conteo municipios')) %>% 
+  kbl %>% 
+  kable_paper('hover', full_width = F)
+```
+
+Tal como se ilustra en la tabla 336 municipios son tanto ZOMAC como PEDET, mietras que 354 son únicamente bajo la denominación ZOMAC y 6 son estrictamente tipo PEDET.
+
+Los municipios ZOMAC fueron declarados a través del decreto 1650 del gobierno colombiano (Decreto 1650); decreto en el cual se con templan las diferentes zonas a lo largo y ancho del país en las cuales se otorgan beneficios tributarios a las empresas y/o nuevas sociedades con el fin de revitalizar la economía en estas zonas, es decir, las empresas que se ubiquen en cualquier zona de los 344 municipios contemplados por el decreto tendrán algunos beneficios tributarios que podrán llegar al punto de evitar completamente el pago de impuestos (MHCP, 2017).
+
+De otro lado, los municipios PDET están ubicados en 19 de los 32 departamentos que conforman Colombia, de igual manera que las ZOMAC, los departamentos de Antioquia, Cauca y Nariño son los que más representatividad tienen con 24, 20 y 17 municipios, respectivamente (MADR, 2017).
+
+Conflicto armado {data-navmenu="Variables" data-icon="fa-list"}
+=========================================
+
+Columna 1 {data-width=150}
+---
+### Descripción variable
+
+Este dato representa que tan afectado están los municipios en cuanto al conflicto armado. Los datos presentados por el DNP (2016) se establecen en una escala de 0 a 1, donde 0 es baja incidencia del conflicto y 1 alta incidencia del conflicto armado. Los datos vienen en formato tipo tabular, para lo que fue necesario realizar la unión con el archivo shapefile de municipios de Colombia, mediante el código del Departamento Administrativo Nacional de Estadística (DANE), pudiendo finalmente tener el archivo en formato espacial. Este procedimiento fue realizado en R, lenguaje de programación utilizado para el análisis de datos.
+
+El índice del conflicto armado corresponde a la variable que indica cuál es el nivel del conflicto armado a niel espacial. Esta variable es adimensional y fue construida a nivel municipal, es decir, todos los municipios de Colombia tienen un valor asociado; valor el cual se registra en una escala de 0 a 1, donde si el valor es cercano a 0 indica que no ha sufrido por el conflicto armado y entre más alto sea este valor indica que si lo es. Se puede observar la aplicación de esta variable del índice del conflicto a nivel espacial en la figura 16.
+Similar al caso de la producción de cacao, el índice del conflicto armado tiene también altos valores en el departamento de Nariño, Arauca y Norte de Santander, zonas que son altamente productoras del cultivo de cacao. Otra zona que ha sido fuertemente atacada por el conflicto armado es el piedemonte llanero, en cercanías a la Sierra de La Macarena en el departamento del Meta. Para el caso de esta variable, se tienen datos para todos los municipios.
+
+Columna 2 
+---
+### Mapa: Grado de conflicto
+
+```{r conflicto, include=TRUE, message = FALSE}
+cflc <- st_read('./gpkg/conflicto.gpkg', quiet = TRUE)
+cflc <- mutate(cflc, confl_clt = factor(confl_clt, levels = c('Bajo', 'Medio bajo', 'Medio', 'Alto', 'Muy Alto')))
+leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(data = cflc,
+    fill = 'confl_clt',
+    color = cpt(pal = 'cb_seq_YlOrRd_06', n = 5),
+    weight = 1,
+    fillOpacity = 0.9, 
+    highlightOptions = highlightOptions(fillColor = 'yellow'), 
+    label = paste0('Municipio: ', cflc$mpio)
+    ) %>% 
+  addLegend(color = cpt(pal = 'cb_seq_YlOrRd_06', n = 5), 
+            labels = c('Bajo', 'Medio bajo', 'Medio', 'Alto', 'Muy Alto'), 
+            position = 'topright', 
+            title = 'Grado de conflicto') %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100,
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE,
+                                                                 updateWhenIdle = TRUE)) %>%
+  addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) %>% 
+    addMeasure(position = "topleft",
+             primaryLengthUnit = "meters",
+             primaryAreaUnit = "sqmeters",
+             activeColor = "#3D535D",
+             completedColor = "#7D4479")%>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addResetMapButton()
+ 
+
+```
+
+
+Producción cultivo cacao {data-navmenu="Variables" data-icon="fa-list"}
+=========================================
+
+Columna 1 {data-width=150}
+---
+### Descripción variable
+
+Según Tovar (2000), “el cacao se ha cultivado en Colombia desde la época de la colonia, llegando a ser en un momento, época de la colonia, el principal producto agrario de exportación, inclusive por encima del cultivo del café” (p. 1); aunque actualmente el cultivo tiene presencia en casi todos los departamentos del país, la producción y el área sembrada se concentra en 11 departamentos que producen más del 90% del grano (FEDECACAO, 2018).
+
+Según datos del MADR (2018), para el 2007 el cacao se cultivó en 28 departamentos en Colombia, mientras que para el año 2017 se cultivó en un total de 30 departamentos, generándose así un aumento de 2 departamentos, Amazonas y Vaupés. En adición, tanto la producción, área sembrada y cultivada, como los rendimientos han ido en aumento desde hace 10 años. Entre el 2007 y el 2017 se cultivó cacao en un total de 570 municipios, al inicio del periodo se cultivó en 436 municipios, mientras que para el 2017 se cultivó en 526, sin embargo, en total, se cultivó en los 570 municipios, estos localizados en 30 de los 32 departamentos que tiene Colombia
+
+Columna 2 
+---
+### Mapa: Producción del cultivo de cacao
+
+```{r cacao, include=TRUE, message = FALSE}
+ccao <- st_read('./gpkg/cacao.gpkg', quiet = TRUE)
+ccao <- drop_na(ccao)
+qpal <- colorQuantile("YlOrBr", ccao$prd, n = 7)
+
+leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(
+    data = ccao,
+    fillColor = ~qpal(ccao$prd),
+    color = 'white', 
+    weight = 0.4,
+    fillOpacity = 0.9, 
+    smoothFactor = 0.5,
+    highlightOptions = highlightOptions(fillColor = 'yellow'), 
+    popup = paste0('Cacao (ton): ', round(ccao$prd, digits = 0))
+    ) %>% 
+  addLegend(position = 'bottomright', 
+            values = ccao$prd, 
+            pal = qpal,
+            title = 'Producción cacao', 
+            opacity = 1) %>%
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100,
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE,
+                                                                 updateWhenIdle = TRUE)) %>%
+  addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) %>% 
+    addMeasure(position = "topleft",
+             primaryLengthUnit = "meters",
+             primaryAreaUnit = "sqmeters",
+             activeColor = "#3D535D",
+             completedColor = "#7D4479")%>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addResetMapButton()
+```
+
+
+Producción cultivo coca  {data-navmenu="Variables" data-icon="fa-list"}
+=========================================
+
+Columna 1 {data-width=150}
+-----------------------------------------
+### Descripción variable
+
+La base de datos del UNODC (2017) indican que en Colombia desde 1999 hasta el 2017 se ha cultivado coca en 24 de los 32 departamentos y en un total de 313 municipios. Para el año 1999 se cultivaba la coca en 91 municipios, mientras que para el 2017 este se cultivó en 186 municipios, haciendo así un incremento de más del 100%, en contraste, para el año 1999 hubo un total de 160,000 ha de coca cultivada, mientras que para el 2017 hubo un total de 171,000 ha de coca, lo que supone que se ha reducido el área cultivada a nivel municipal, pero que ha registrado un aumento en la cantidad de municipios donde se cultiva.
+
+Con respecto al cultivo de coca en el país, se logra observar un aumento considerable para el área total cultivada de coca a nivel general, donde los principales departamentos en los cuales se ha incrementado potencialmente la coca y su cultivo son los departamentos localizados al sur del país, como lo son Cauca, Nariño, Putumayo y Caquetá, así como también en Antioquia, Norte de Santander, y Bolívar.
+
+Columna 2 
+-----------------------------------------
+### Mapa: Producción del cultivo de coca
+
+```{r coca, include=TRUE, message = FALSE}
+coca <- st_read('./gpkg/coca.gpkg', quiet = TRUE)
+npal <- colorNumeric(palette = 'Reds', domain = coca$value)
+
+leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(
+    data = coca,
+    fillColor = ~npal(coca$value),
+    color = 'white', 
+    weight = 0.4,
+    fillOpacity = 0.9, 
+    smoothFactor = 0.5, 
+    popup = paste0('Coca (ton): ', round(coca$value, digits = 0))
+    ) %>% 
+  addLegend(position = 'bottomright', 
+            values = coca$value, 
+            pal = npal,
+            title = 'Producción coca (ton)', 
+            opacity = 1) %>%
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100,
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE,
+                                                                 updateWhenIdle = TRUE)) %>%
+  addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) %>% 
+    addMeasure(position = "topleft",
+             primaryLengthUnit = "meters",
+             primaryAreaUnit = "sqmeters",
+             activeColor = "#3D535D",
+             completedColor = "#7D4479")%>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addResetMapButton()
+```
