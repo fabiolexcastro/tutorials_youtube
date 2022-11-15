@@ -1,0 +1,186 @@
+---
+title: "Cultivo de cacao en Colombia"
+output: 
+
+  flexdashboard::flex_dashboard:
+    logo: png/logo/logo.png
+    horizontal_layout: scroll
+    navbar:
+       - {title: "Geographer", href: "http://geofabio.com", align: right}
+    theme:
+      # bg: "#101010"
+      # fg: "#FDF7F7" 
+      primary: "#E8E8E8"
+      secondary: "#C2C2C2"
+      version: 4
+      bootswatch: flatly
+      base_font:
+        google: Roboto Condensed
+      code_font:
+        google: Roboto Condensed
+    orientation: columns
+    vertical_layout: fill
+    social: [ "twitter", "facebook", "linkedin" ]
+    source_code: "https://github.com/fabiolexcastro/Cacao_Postconflicto"
+---
+
+<style>
+.navbar-logo{
+width:60px;
+height:40px;
+}
+</style>
+
+```{r setup, include=FALSE}
+library(flexdashboard); library(pacman)
+pacman::p_load(raster, DT, rmapshaper, leafem, plotly, leaflet.providers, leaflet.extras, leaflegend, geodata, kableExtra, rgdal, rgeos, stringr, sf, tidyverse, fs, gtools, cptcity, leaflet, glue)
+# Install thematic and un-comment for themed static plots (i.e., ggplot2)
+# thematic::thematic_rmd() # bostwatch: https://bootswatch.com
+# Source: https://rstudio.github.io/flexdashboard/articles/theme.html # Column {data-width=650 .tabset}
+```
+
+
+Resumen - Presentación 
+=======================================================================
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Introducción 
+
+Colombia, un país localizado en la esquina noroccidente de Sur América, es comúnmente conocido por su gran biodiversidad (Ministerio de Ambiente y Desarrollo Sostenibe, Programa de las Naciones Unidas para el Desarrollo, 2014), por su rico café, pero, lamentablemente, también conocido por la guerra interna que se ha vivido desde la década de los 60’s, aspecto que le da una cara negativa a este país, y por lo cual es tildado a nivel mundial como violento (Echandía, 1997).
+
+Ante esto, ha existido varios intentos por parte del gobierno colombiano en terminar la guerra interna del país, liderada principalmente por las Fuerzas Armadas Revolucionarias de Colombia (FARC) y el Ejército de Liberación Nacional (ELN). Entre los principales intentos de negociaciones destaca el suscitado en 1990 por el en ese entonces, presidente César Gaviria, luego en 1998 el entonces presidente Andrés Pastrana reanudó conversaciones con las FARC (Arias, 2008). Luego en el año 2005 el presidente de turno Álvaro Uribe – y actual senador de la República – sostuvo conversaciones con la guerrilla colombiana (Arias, 2008). Sin embargo, solo fue hasta el gobierno de Juan Manuel Santos durante el período de 2008-2012 que se llegó a un acuerdo multilateral que ponía fin a los años de violencia ocasionados por este grupo al margen de la ley conocido como las FARC (Mesa de Conversaciones, 2017).
+
+Este acuerdo de paz finalizó el 24 de noviembre de 2016, con la firma entre el expresidente Juan Manuel Santos y Luciano Arango (más conocido bajo el alías Iván Márquez) en Cartagena de Indias, Colombia (Mesa de conversaciones, 2017). Con la firma de dicho acuerdo se llegó a varias concertaciones, entre ellos, el cese de armas, despeje de zonas que han sido emplazadas por las FARC, reparación de víctimas, así como también, y no menos importante, la estipulación de las áreas conocidas como zonas más afectadas por el conflicto armado (ZOMAC) bajo el Decreto 1650 del 9 de octubre de 2017 (Ministerio de Hacienda y Crédito Público, 2017), los municipios afectados gozarán de beneficios, entre los que se encuentran estímulos a la inversión y exención de impuestos; esto con el fin de lograr en ellos un desarrollo.
+
+Con base en este gran logro de paz han nacido varias iniciativas a favor del desarrollo para las zonas rurales del país; una de ellas es la enmarcada en el “Acuerdo Cacao, Bosques y Paz”, iniciativa firmada por el gobierno colombiano, a través del Ministerio de Agricultura y Desarrollo Rural y el Ministerio de Ambiente, la industria cacaotera con Federación de Cacaoteros (FEDECACAO) y casa Luker, además, de organizaciones de la sociedad civil de orden nacional e internacional como Initiatief Duurzame Handel (IDH, por sus siglas en alemán) y World Resources Institute (WRI). En este acuerdo, se sigue la idea de “aunar esfuerzos para poner fin a la deforestación y promover la protección y restauración de los bosques en la cadena del suministro de cacao en Colombia” (Cocoa & Forest Initiative, 2018, p. 1).
+
+En ese orden de ideas, el cultivo del cacao se presenta como una oportunidad para suplir los territorios que han sido cultivados con coca, a su vez, proteger los bosques de ser deforestados, mediante la inclusión de sistemas agroforestales con el cultivo del cacao; todo esto para aquellas zonas que han sido fuertemente devastadas por las acciones armadas en el marco del postconflicto.
+
+Column {data-width=350 data-height=500}
+-----------------------------------------------------------------------
+### Cultivo de cacao 
+
+Según los datos del MADR para el año 2007, se registraban 436 municipios cultivando cacao mientras que para el 2017 hubo un aumento a 526 municipios cultivando cacao (2018). En la Figura 11 se ilustra el aumento de la cantidad de municipios a lo largo del tiempo.
+
+```{r, fig.align = 'center'}
+tble <- read_csv('./tbl/cacao.csv')
+mpos <- tble %>% dplyr::select(DPTO, MPIO, PERIODO) %>% group_by(PERIODO) %>% dplyr::summarise(count = n()) %>% ungroup() %>% setNames(c('Periodo', 'Cantidad'))
+area <- tble %>% group_by(PERIODO) %>% summarise(PRODUCCION = sum(PRODUCCION, na.rm = T)) %>% ungroup()
+coca <- st_read('./gpkg/coca.gpkg', quiet = TRUE)
+glne <- ggplot(data = mpos, aes(x = Periodo, y = Cantidad)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = seq(2007, 2017, 2)) +
+  ggtitle(label = 'Cantidad de municipos con cultivo\nde cacao en Colombia') +
+  theme_minimal() + 
+  labs(x = 'Municipios (n)', y = 'Año') + 
+  theme(axis.title.x = element_text(face = 'bold', size = 10), 
+        axis.title.y = element_text(face = 'bold', size = 10),
+        axis.text.x = element_text(size = 8), 
+        axis.text.y = element_text(size = 8),
+        plot.title = element_text(face = 'bold', size = 10, hjust = 0.5))
+
+ggplotly(glne, width = 450, height = 300)
+
+```
+
+### Producción promedio entre el 2007 y el 2017 para el cacao
+```{r}
+valueBox(paste0(formattable::comma(sum(area$PRODUCCION), digits=0), ' Ton'), icon = "fa fa-check", color = "#345917")
+```
+
+### Cultivo de coca
+
+La base de datos del UNODC (2017) indican que en Colombia desde 1999 hasta el 2017 se ha cultivado coca en 24 de los 32 departamentos y en un total de 313 municipios. Para el año 1999 se cultivaba la coca en 91 municipios, mientras que para el 2017 este se cultivó en 186 municipios, haciendo así un incremento de más del 100%, en contraste, para el año 1999 hubo un total de 160,000 ha de coca cultivada, mientras que para el 2017 hubo un total de 171,000 ha de coca, lo que supone que se ha reducido el área cultivada a nivel municipal, pero que ha registrado un aumento en la cantidad de municipios donde se cultiva.
+
+```{r}
+coca_tble <- st_drop_geometry(coca)
+coca_tble <- mutate(coca_tble, value = round(value, digits = 0))
+coca_tble <- as_tibble(coca_tble)
+coca_tble <- mutate(coca_tble, NOMBRE_DPT = str_to_title(NOMBRE_DPT))
+coca_tble <- coca_tble %>% arrange(desc(value))
+coca_tble <- top_n(x = coca_tble, n = 5, wt = value)
+coca_tble <- mutate(coca_tble, NOMBRE_DPT = factor(NOMBRE_DPT, levels = coca_tble$NOMBRE_DPT))
+colnames(coca_tble) <- c('Departamento', 'Hectáreas')
+
+g_coca <- ggplot(data = coca_tble, aes(x = Departamento, y = Hectáreas)) + 
+  geom_col() + 
+  labs(x = 'Dpto', y = 'Ha') +
+  ggtitle(label = 'Top 5 departamentos con mayor área de coca') +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face = 'bold', size = 10), 
+        axis.title.y = element_text(face = 'bold', size = 10),
+        axis.text.x = element_text(size = 8), 
+        axis.text.y = element_text(size = 8),
+        plot.title = element_text(face = 'bold', size = 10, hjust = 0.5))
+ggplotly(g_coca, width = 850, height = 300)
+
+```
+
+### Área coca
+```{r}
+valueBox(paste0(formattable::comma(sum(coca$value), digits=0), ' Ha'), icon = "fa fa-pagelines", color = "#D4C92F")
+```
+
+Conflicto armado {data-navmenu="Variables" data-icon="fa-globe-americas"}
+=========================================
+Columna 1 {data-width=400}
+-----------------------------------------
+### Descripción variable
+
+Este dato representa que tan afectado están los municipios en cuanto al conflicto armado. Los datos presentados por el DNP (2016) se establecen en una escala de 0 a 1, donde 0 es baja incidencia del conflicto y 1 alta incidencia del conflicto armado. Los datos vienen en formato tipo tabular, para lo que fue necesario realizar la unión con el archivo shapefile de municipios de Colombia, mediante el código del Departamento Administrativo Nacional de Estadística (DANE), pudiendo finalmente tener el archivo en formato espacial. Este procedimiento fue realizado en R, lenguaje de programación utilizado para el análisis de datos.
+
+El índice del conflicto armado corresponde a la variable que indica cuál es el nivel del conflicto armado a niel espacial. Esta variable es adimensional y fue construida a nivel municipal, es decir, todos los municipios de Colombia tienen un valor asociado; valor el cual se registra en una escala de 0 a 1, donde si el valor es cercano a 0 indica que no ha sufrido por el conflicto armado y entre más alto sea este valor indica que si lo es. Se puede observar la aplicación de esta variable del índice del conflicto a nivel espacial en la figura 16.
+Similar al caso de la producción de cacao, el índice del conflicto armado tiene también altos valores en el departamento de Nariño, Arauca y Norte de Santander, zonas que son altamente productoras del cultivo de cacao. Otra zona que ha sido fuertemente atacada por el conflicto armado es el piedemonte llanero, en cercanías a la Sierra de La Macarena en el departamento del Meta. Para el caso de esta variable, se tienen datos para todos los municipios.
+
+Columna 2 
+---
+### Mapa: Grado de conflicto
+
+```{r conflicto, include=TRUE, message = FALSE}
+cflc <- st_read('./gpkg/conflicto.gpkg', quiet = TRUE)
+cflc <- mutate(cflc, confl_clt = factor(confl_clt, levels = c('Bajo', 'Medio bajo', 'Medio', 'Alto', 'Muy Alto')))
+dpto <- st_read('./gpkg/dptos.gpkg', quiet = TRUE)
+leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(data = cflc,
+    fill = 'confl_clt',
+    color = cpt(pal = 'cb_seq_YlOrRd_06', n = 5),
+    weight = 1,
+    fillOpacity = 0.9, 
+    highlightOptions = highlightOptions(fillColor = 'yellow'), 
+    label = paste0('Municipio: ', cflc$mpio)
+    ) %>% 
+  addLegend(color = cpt(pal = 'cb_seq_YlOrRd_06', n = 5), 
+            labels = c('Bajo', 'Medio bajo', 'Medio', 'Alto', 'Muy Alto'), 
+            position = 'topright', 
+            opacity = 1,
+            title = 'Grado de conflicto') %>% 
+  addPolygons(data = dpto, 
+              fill = NA, 
+              weight = 4,
+              color = '#8C8C8C') %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100,
+                                                                 metric = TRUE,
+                                                                 imperial = TRUE,
+                                                                 updateWhenIdle = TRUE)) %>%
+  addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) %>% 
+    addMeasure(position = "topleft",
+             primaryLengthUnit = "meters",
+             primaryAreaUnit = "sqmeters",
+             activeColor = "#3D535D",
+             completedColor = "#7D4479")%>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addResetMapButton()
+
+```
+
+Columna 3 {data-width=400}
+---
+### Descripción grados de conflicto
+
+El índice del conflicto armado corresponde a la variable que indica cuál es el nivel del conflicto armado a niel espacial. Esta variable es adimensional y fue construida a nivel municipal, es decir, todos los municipios de Colombia tienen un valor asociado; valor el cual se registra en una escala de 0 a 1, donde si el valor es cercano a 0 indica que no ha sufrido por el conflicto armado y entre más alto sea este valor indica que si lo es. Se puede observar la aplicación de esta variable del índice del conflicto a nivel espacial en la figura 16.
+Similar al caso de la producción de cacao, el índice del conflicto armado tiene también altos valores en el departamento de Nariño, Arauca y Norte de Santander, zonas que son altamente productoras del cultivo de cacao. Otra zona que ha sido fuertemente atacada por el conflicto armado es el piedemonte llanero, en cercanías a la Sierra de La Macarena en el departamento del Meta. Para el caso de esta variable, se tienen datos para todos los municipios.
+
+
