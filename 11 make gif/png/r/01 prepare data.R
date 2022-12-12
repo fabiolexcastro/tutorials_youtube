@@ -117,6 +117,10 @@ dir_create('../gif')
 image_write(image = anm, path = glue('../gif/prec.gif'))
 
 
+# To write the results ----------------------------------------------------
+st_write(s_20, 'gpkg/moran_fallecidosGral_2020.gpkg')
+st_write(s_21, 'gpkg/moran_fallecidosGral_2021.gpkg')
+
 
 
 
