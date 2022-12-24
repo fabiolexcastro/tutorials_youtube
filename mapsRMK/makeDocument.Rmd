@@ -1,0 +1,160 @@
+---
+title: "Índice de pobreza multidimensional en Colombia - DANE 2018"
+subtitle: "Un geógrafo en YouTube" 
+author: 
+  - Msc. Fabio Alexander Castro Llanos
+  
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    theme: united
+    toc_depth: 3
+    highlight: tango
+---
+
+```{=html}
+<style>
+.html-widget {
+    margin: auto;
+}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+pacman::p_load(terra, sf, fs, hablar, gcookbook, extrafont, RColorBrewer, rmapshaper, readxl, glue, hrbrthemes, tidyverse, leaflet, htmltools, leaflet.extras)
+```
+
+## Descriptiva para el índice
+
+En el presente documento describimos el índice de pobreza multidimensional del DANE para el año 2018, este índice fue construido a partir del Censo Nacional realizado en el mismo año. Las metodologías oficiales para la estimación de este índice se encuentra consignada en el CONPES 150 de 2012.
+
+En pocas palabras, la metodología utilizada para el cálculo es una aproximación a la construcción del índice de pobreza multidimensional oficial para Colombia basado en la metodología de Alkire y Foster.
+
+## Construcción de la medida
+
+Al tratarse de una aproximación de la medición de la pobreza multidimensional en Colombia a nivel municipal, la medida cuenta con cinco dimesiones:
+
+1.  Condiciones educativas del hogar
+2.  Condiciones de la niñez y juventud
+3.  Salud
+4.  Trabajo
+5.  Acceso a servicios públicos domiciliarios y condiciones de la vivienda
+
+Cada dimensión de estas tiene un peso del 20% y los indicadores cuentan con el mismo peso dentro de su dimensión respectiva. En este caso se consideran, como pobres a los hogares que tengan privación en por lo menos el 33% de los indicadores (Tomado de [DANE](https://www.dane.gov.co/files/investigaciones/condiciones_vida/pobreza/2018/informacion-censal/nota-metodologia-censal-pobreza-municipal-2018.pdf)).
+
+Ahora bien, el presente documento ilustra un poco la distribución espacial de estos indicadores, resaltando aquellos municipios donde los indicadores son altos / bajos. Todo esto en el marco de ilustrar el cómo realizar un documento RMarkdown que incluya tanto gráficos como mapas estáticos e interactivos [Un geógrafo en YouTube](youtube.com/FabioCastroLlanos).
+
+```{r include=FALSE}
+dbse <- st_read('gpkg/dbse.gpkg', quiet = TRUE)
+tble <- dbse %>% st_drop_geometry %>% dplyr::select(DPTO_CNMBR, MPIO_CNMBR, Mncp, Anlf:totalipm) %>% as_tibble() %>% mutate(DPTO_CNMBR = iconv(DPTO_CNMBR, from = 'UTF-8', to = 'latin1'), MPIO_CNMBR = iconv(MPIO_CNMBR, from = 'UTF-8', to = 'latin1'), DPTO_CNMBR = as.character(DPTO_CNMBR), MPIO_CNMBR = as.character(MPIO_CNMBR))
+dctn <- read_excel('tble/diccionario.xlsx')
+dbse <- rmapshaper::ms_simplify(dbse)
+```
+
+### Analfabetismo
+
+Esta variable hace referencia al índice que representa la falta de habilidad de las personas para leer y escribir, esto debido a que no han recibido una educación básica que incluya la lectura y la escritura, o han tenido dificultad para apredner estas habilidades. Esta variable se presenta con mayor impacto en las zonas rurales del país y/o más alejadas a las grandes urbes del país.
+<br> 
+```{r include=TRUE, echo=FALSE}
+g_anlf <- ggplot(data = tble, aes(x = Anlf)) + 
+  geom_histogram(binwidth = 0.4) + 
+  theme_ipsum_es() + 
+  labs(x = 'Analfabetismo', y = 'Frecuencia (cantidad municipios)') + 
+  ggtitle(label = 'Histograma para el analfabetismo en Colombia') + 
+  theme_ipsum_ps() + 
+  theme()
+```
+
+```{r pressure, echo=FALSE, include=TRUE, warning=FALSE, fig.width = 7, fig.height = 5, fig.align = 'center'}
+g_anlf
+```
+
+Como se puede apreciar en la anterior Figura, la mayor frecuencia de municipios se da entre el 10% y el 20%, presentándose aquí el valor de la moda, de otro lado, resalta que ningún municipio tiene una tasa de analfabetismo del 0% y que hay un municipio del país donde el analfabetismo es mayor que el 50%, este es La Victoria en el departamento del Amazonas. A continuación se ilustra el mapa interactivo del comportamiento de esta variable a nivel espacial.
+<br> 
+```{r message=FALSE, fig.align = FALSE, echo = FALSE}
+cnmr <- colorNumeric(palette = 'YlOrRd', domain = dbse$Anlf, n = 9)
+leaflet() %>% 
+  addProviderTiles(provider = 'CartoDB.Positron') %>% 
+  addPolygons(data = dbse, fillColor = ~cnmr(dbse$Anlf), popup = paste0(dbse$MPIO_CNMBR, ' - ', dbse$Anlf), color = 'white', weight = 0.4, fillOpacity = 0.9, smoothFactor = 0.5) %>% 
+  addLegend(position = 'bottomright', values = dbse$Anlf, pal = cnmr, title = 'Tasa de analfabetismo', opacity = 1) %>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100, metric = TRUE, imperial = TRUE, updateWhenIdle = TRUE)) %>% 
+  addControl(html = "<p><strong><em>Analfabetismo</em></strong></p>",
+             position = "topleft") %>% 
+  addResetMapButton()
+```
+
+<br> 
+Grosso modo se puede observar que los municipios de la periferia del país son los que presentan una mayor tasa de analfabetismo, mientras que los municipios localizados sobre la cordillera de los Andes son los que tienen una menor tasa de esta variable, siendo los rangos desde el 3 hasta el 54%.
+
+### Desempleo de larga duración
+
+Como su nombre lo indica esta variable refiere a las personas que tienen un desempleo de larga duración, este indicador permite observar el tiempo que una persona ha estado sin trabajo, durante más de 1 año. En otras palabras, la definición estándar de larga duración incluye a todas las personas desocupadas cuya duración de búsqueda de un puesto de trabajo, es de 12 meses o más, incluyendo el período de referencia (52 semanas y más); se expresa como porcentaje del toal de fuerza de trabajo y de la desocupación total. Aquí se presenta el comportamiento de esta variable a nivel espacial en Colombia, según los datos del DANE. 
+<br> 
+
+```{r message=FALSE, fig.align=FALSE, echo=FALSE, warning=FALSE}
+cnmr <- colorNumeric(palette = 'YlOrRd', domain = dbse$Ddld, n = 9)
+leaflet() %>% 
+  addProviderTiles(provider = 'CartoDB.Positron') %>% 
+  addPolygons(data = dbse, fillColor = ~cnmr(dbse$Ddld), popup = paste0(dbse$MPIO_CNMBR, ' - ', dbse$Ddld), color = 'white', weight = 0.4, fillOpacity = 0.9, smoothFactor = 0.5) %>% 
+  addLegend(position = 'bottomright', values = dbse$Ddld, pal = cnmr, title = 'Tasa de Desempleo de Larga Duración', opacity = 1) %>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100, metric = TRUE, imperial = TRUE, updateWhenIdle = TRUE)) %>% 
+  addControl(html = "<p><b><em>Desempleo larga duración</em></b></p>",
+             position = "topleft") %>% 
+  addResetMapButton()
+```
+<br> 
+Similar al comportamiento del analfabetismo, se logra vislumbrar unos valores bastante altos en la periferia del país, siendo mucho más pronunciado en la región de la Orinoquía y Amazonas, y un poco menos en el Chocó y La Guajira, mientras que los municipios internos del país presentan valores por debajo del 30-40%.  
+
+### Sin acceso a fuente de agua mejorada 
+
+Esta variable hace referencia a la capacidad de la población por acceder a fuentes de agua potable. Refiere, proporción de la población con acceso a métodos de abastecimiento de agua adecuados, en otras palabras, proporción de la población con acceso a fuentes mejoradas de abastecimiento de agua potable. La población con aceso a métodos de abastecimiento de agua adecuados es aquella que se abastece del líquido, usando cualquier de los siguientes métodos: 
+- Para zonas de cabecera municipal: acueducto
+- Para otras zonas diferentes a la cabecera municipal (resto): acueducto y soluciones alternativas (otra fuente por tubería, pozo con bomba y pila pública). 
+
+Ahora bien, el comportamiento de esta variable se ilustra en el siguiente mapa interactivo:
+<br> 
+
+```{r message=FALSE, fig.align = FALSE, echo = FALSE}
+cnmr <- colorNumeric(palette = 'Blues', reverse = TRUE, domain = dbse$Saafdam, n = 9)
+leaflet() %>% 
+  addProviderTiles(provider = 'CartoDB.Positron') %>% 
+  addPolygons(data = dbse, fillColor = ~cnmr(dbse$Saafdam), popup = paste0(dbse$MPIO_CNMBR, ' - ', dbse$Saafdam), color = 'white', weight = 0.4, fillOpacity = 0.9, smoothFactor = 0.5) %>% 
+  addLegend(position = 'bottomright', values = dbse$Anlf, pal = cnmr, title = 'Tasa de acceso a agua mejorada', opacity = 1) %>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100, metric = TRUE, imperial = TRUE, updateWhenIdle = TRUE)) %>% 
+  addControl(html = "<p><strong><em>Sin acceso a fuentes de agua</em></strong></p>",
+             position = "topleft") %>% 
+  addResetMapButton()
+```
+<br> 
+Similar a las demás variables, aquí se presenta un bajo acceso a agua potable en la periferia, resaltándose toda la región de la Amazonía y del Choco colombiano, como en la parte norte del país, propiamente en el departamento de la Guajira.
+
+
+### Índice de pobreza multidimensional
+
+Este índice en gran sentido resume las anteriores variables y otras más, todas en función del comportamiento de la socio-economía de los habitantes de cada municipio. Propiamente está conformada por cinco dimensiones: condiciones educativas del hogar, condiciones de la niñez y la juventud, salud, trabajo y condiciones de la vivienda y acceso a servicios públicos domiciliarios; a su vez estas 5 dimensiones involucran 15 indicadores. En Colombia, según los datos de esta variable para el 2018 (año del censo por el DANE), los mayores niveles de pobreza multidimensional municipal se encuentran predominantemente en las regiones de la Orinoquía-Amazonía y Pacífica, y en menores niveles en municipios ubicados en las regiones Central y Oriental del país. Todo esto se resume en el siguiente mapa interactivo realizado con `leaflet`.
+<br> 
+```{r message=FALSE, fig.align = FALSE, echo = FALSE}
+cnmr <- colorNumeric(palette = 'inferno', reverse = TRUE, domain = dbse$totalipm, n = 9)
+leaflet() %>% 
+  addProviderTiles(provider = 'CartoDB.Positron') %>% 
+  addPolygons(data = dbse, fillColor = ~cnmr(dbse$totalipm), popup = paste0(dbse$MPIO_CNMBR, ' - ', dbse$totalipm), color = 'white', weight = 0.4, fillOpacity = 0.9, smoothFactor = 0.5) %>% 
+  addLegend(position = 'bottomright', values = dbse$totalipm, pal = cnmr, title = 'Índice de pobreza multidimensional', opacity = 1,
+            labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100, metric = TRUE, imperial = TRUE, updateWhenIdle = TRUE)) %>% 
+  addControl(html = "<p><strong><em>Índice de pobreza multidimensional</em></strong></p>",
+             position = "topleft") %>% 
+  addResetMapButton()
+```
+<br> 
+Recuerda que si das clic en algun polígono te muestra el nombre del municipio con el valor del índice, esto aplica para todos los mapas mostrados anteriormente.
+**Knit**
