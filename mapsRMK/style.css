@@ -1,0 +1,15 @@
+/* Whole document: */
+body{
+  font-family: Barlow;
+  font-size: 12pt;
+}
+/* Headers */
+h3,h4,h5,h6{
+  font-family: Barlow;
+  font-size: 13pt;
+}
+/* Headers 2 */
+h1,h2{
+  font-family: Barlow;
+  font-size: 22pt;
+}
