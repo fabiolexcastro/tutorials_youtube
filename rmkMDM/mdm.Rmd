@@ -1,0 +1,135 @@
+---
+title: "Medida de Desempeño Municipal - DNP"
+subtitle: "Un geógrafo en YouTube" 
+author: 
+  - Msc. Fabio Alexander Castro Llanos
+  
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    theme: united
+    toc_depth: 4
+    highlight: tango
+---
+
+```{=html}
+<style>
+.html-widget {
+    margin: auto;
+}
+</style>
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+pacman::p_load(terra, sf, fs, hablar, gcookbook, plotly, extrafont, RColorBrewer, rmapshaper, readxl, glue, hrbrthemes, tidyverse, leaflet, htmltools, leaflet.extras)
+```
+
+
+En el presente documento describimos el índice de desempeño municipal entre los años 2016 al 2021, esto tomando como referencia los datos de esta variable dados por el Departamento Nacional de Planeación. Todo los datos aquí descritos se pueden tomar de  [DNP](https://terridata.dnp.gov.co/index-app.html#/descargas)).
+
+Desde el año 2016, el DNP venía calculando anualmente el Índice de Desempeño Integral (IDI), el cual tenía comoobjetivo cuantificar el desempeño de las entidades territoriales municipales y departamentales. 10 años después sepuso en marcha la Medición de Desempeño Municipal (MDM), generando así una nueva metodología para evaluar el desempeño de los municipios. Paralelamente se creó el índice de desempeño departamental, con esta herramientas se esperarnhacer seguimiento a indicadores estratégicos, identificar bueans prácticas de gestión y apoyar la focalización de la asistencia técnica brindada desde el nivel nacional. 
+
+### Estructura del indicador MDD
+
+La MDD se estructura en dos componentes: 
+
+**1**. Se enfoca en la gestión, incluye las acciones y decisiones que adelanta la administración local que buscan transformar los recursos en un mayor bienestar de la población y desarroll.
+**2**. Se enfoca en los resultados del municipio, mide los elementos constitutivos del bienestar de la población. 
+
+El primer ítem mencionado, está compuesto por cuatro dimensiones y 15 indicadores, los cuales miden la capacidad de las entidades territoriales para 
+
+  **a**. Generar recursos propios que se traduzcan en inversión <br>
+  **b**. Ejecutar los recursos de acuerdo con su presupuesto, planeación o asignación inicial <br>
+  **c**. Atender al ciudadano bajo unos lineamientosde integridad, libre acceso a la inforamción y uso de herramientas tecnológicas <br>
+  **d**. El nivel de gestión de los elementos de planeación estratégica para ejecturar sus competencias y responsabilidad <br>
+
+El segúndo punto tiene 7 dimensiones que recogen elementos constitutivos de bienestar como fin último de desarrollo terirotial y útiles 
+
+**a** Educación <br>
+**b** Salud <br>
+**c** Servicios públicos <br>
+**d** Seguridad y convivencia <br>
+**e** Niñez y juventud <br>
+**f** Medio ambiente <br>
+**g** Trabajo <br>
+
+Tanto para gestión como para resultados, cada indicador tiene la misma participación porcentual al interior de cada dimensión, y a su vez cada dimensión tiene la misma participación en el puntaje final del componente (25% para el caso de gestión, 14,3% para el caso de resultados). La calificación oscila entre 0 y 100, siendo 100 un desempeño sobresaliente y 0 un muy mal desempeño. La puntación final de cada componente es un promedio ponderado de las dimensiones.
+
+Ahora bien, el presente documento ilustra un poco la distribución espacial de este indicadores, resaltando aquellos municipios donde los indicadores son altos / bajos. Todo esto en el marco de ilustrar el cómo realizar un documento RMarkdown que incluya tanto gráficos como mapas estáticos e interactivos [Un geógrafo en YouTube](youtube.com/FabioCastroLlanos).
+
+
+#### Histograma del índice de desempeño municipal
+
+La siguiente figura ilustra el histograma de esta variable, tomando como valor el promedio entre el año 2016 al 2021. 
+
+```{r include=FALSE}
+tble <- read_csv('tble/mdm_sub.csv')
+tble <- mutate(tble, year = paste0('y', year))
+tble <- tble %>% spread(year, value)
+tble <- mutate(tble, average = apply(as.data.frame(tble)[,8:13], 1, 'mean'))
+dbse <- st_read('gpkg/mpio.gpkg', quiet = TRUE)
+dbse <- inner_join(dbse, tble, by = c('MPIO_CCNCT' = 'codigompio'))
+```
+
+<br> 
+```{r include=TRUE, echo=FALSE}
+g_hist <- ggplot(data = tble, aes(x = average)) + 
+  geom_histogram(binwidth = 0.4) + 
+  theme_ipsum_es() + 
+  labs(x = 'Medición de Desempeño Municipal', y = 'Frecuencia (cantidad municipios)') + 
+  ggtitle(label = 'Índice del desempeño a nivel municipal (2016-2021)') + 
+  scale_x_continuous(limits = c(0, 100)) +
+  theme_ipsum_ps() + 
+  theme()
+```
+
+```{r pressure, echo=FALSE, include=TRUE, warning=FALSE, fig.width = 7, fig.height = 5, fig.align = 'center'}
+g_hist
+```
+
+Como se puede apreciar en la anterior Figura, la mayor frecuencia de municipios se da entre el 45% y el 55%, presentándose aquí el valor de la moda, teniendo valores mínimos de 26 y máximos de 80, recordando que estos valores son en promedio entre el año 2016 y el año 2021. <br>
+
+#### Mapa del índice de desempeño a nivel municipal 
+
+El comportamiento a nivel espacial de estos datos se ilustra en el siguiente interactivo realizad con `leaflet`.
+
+<br> 
+
+```{r message=FALSE, fig.align = FALSE, echo = FALSE}
+cnmr <- colorNumeric(palette = 'inferno', domain = dbse$y2016, n = 9)
+leaflet() %>% 
+  addProviderTiles(provider = 'CartoDB.Positron') %>% 
+  addPolygons(data = dbse, fillColor = ~cnmr(dbse$y2016), popup = paste0(dbse$MPIO_CNMBR, ' - ', dbse$y2016), color = 'white', weight = 0.4, fillOpacity = 0.9, smoothFactor = 0.5) %>% 
+  addLegend(position = 'bottomright', values = dbse$y2016, pal = cnmr, title = 'MDM', opacity = 1,
+            labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>% 
+  addSearchOSM() %>% 
+  addControlGPS() %>% 
+  addScaleBar(position = "bottomright",options = scaleBarOptions(maxWidth = 100, metric = TRUE, imperial = TRUE, updateWhenIdle = TRUE)) %>% 
+  addControl(html = "<p><strong><em>Índice de desempeño municipal 2016</em></strong></p>",
+             position = "topleft") %>% 
+  addResetMapButton()
+```
+<br>
+Ahora bien revisemos el comportamiento de las 3 principales ciudades del país en el tiempo, entre 2016 y 2021. 
+<br>
+
+```{r message=FALSE, fig.align = FALSE, echo = FALSE}
+main <- tble %>% filter(mpio %in% c('Cali', 'Medellín', 'Bogotá')) %>% dplyr::select(mpio, y2016:y2021) %>% gather(var, value, -mpio) %>% mutate(year = parse_number(var))
+g_lne <- ggplot(data = main, aes(x = year, y = value, col = mpio)) + 
+  # geom_line(group = 1) +
+  # geom_point() +
+  geom_smooth(se = FALSE, method = 'loess') + 
+  ggtitle('Comportamiento anual entre 2016 y el 2021 para el MDD') +
+  labs(x = 'Año', y = 'Índice de desempeño municipal', col = 'Municipio') +
+  theme_ipsum_ps() + 
+  theme(legend.position = 'bottom', 
+        plot.title = element_text(face = 'bold', hjust = 0.5))
+```
+
+```{r line, echo=FALSE, include=TRUE, message = FALSE, warning=FALSE, fig.width = 7, fig.height = 5, fig.align = 'center'}
+ggplotly(g_lne)
+```
